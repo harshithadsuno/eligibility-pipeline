@@ -16,7 +16,7 @@ def load_partners_config(path="config.yaml"):
         cfg = yaml.safe_load(f)
     return cfg["partners"]
 
-#bronze code
+#bronze layer
 
 def load_raw_to_bronze(cfg):
     df = (
@@ -34,8 +34,7 @@ def write_bronze(df, partner_name):
     print(f"bronze written: {out_path}")
 
 
-
-# silver code
+# silver layer
 
 def normalize_phone(col):
     digits = F.regexp_replace(F.coalesce(col, F.lit("")), r"[^0-9]", "")
@@ -55,9 +54,9 @@ def normalize_dob(col):
 
     parsed = (
         F.when(s.rlike(r"^\d{4}-\d{2}-\d{2}$"), F.to_date(s, "yyyy-MM-dd"))
-         .when(s.rlike(r"^\d{1,2}/\d{1,2}/\d{4}$"), F.to_date(s, "MM/dd/yyyy"))
          .when(s.rlike(r"^\d{4}/\d{2}/\d{2}$"), F.to_date(s, "yyyy/MM/dd"))
-
+         .when(s.rlike(r"^\d{1,2}/\d{1,2}/\d{4}$"), F.to_date(s, "MM/dd/yyyy"))
+         .when(s.rlike(r"^\d{1,2}-\d{1,2}-\d{4}$"), F.to_date(s, "MM-dd-yyyy"))
          .otherwise(F.lit(None))
     )
 
@@ -67,12 +66,12 @@ def normalize_dob(col):
 def bronze_to_silver(bronze_df, cfg):
     df = bronze_df
 
-    # map partner columns -> standard columns
+    # mapping partner columns -> standard columns
     for src, dst in cfg["column_mapping"].items():
         if src in df.columns:
             df = df.withColumnRenamed(src, dst)
 
-    # apply required transformations
+    # applying required transformations
     df = (
         df
         .withColumn("external_id", F.trim(F.col("external_id")))
@@ -102,7 +101,7 @@ def write_silver(df, partner_name):
     df.write.mode("overwrite").parquet(out_path)
     print(f"silver written: {out_path}")
 
-#gold code
+#gold layer
 
 def write_gold(spark, partners):
     gold_df = None
@@ -122,8 +121,6 @@ def write_gold(spark, partners):
 
 
 
-
-
 if __name__ == "__main__":
     partners = load_partners_config("config.yaml")
 
@@ -136,3 +133,6 @@ if __name__ == "__main__":
 
     write_gold(spark, partners)
     spark.stop()
+
+
+
